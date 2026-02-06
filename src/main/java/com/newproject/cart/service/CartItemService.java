@@ -1,0 +1,82 @@
+package com.newproject.cart.service;
+
+import com.newproject.cart.domain.Cart;
+import com.newproject.cart.domain.CartItem;
+import com.newproject.cart.dto.CartItemRequest;
+import com.newproject.cart.dto.CartItemResponse;
+import com.newproject.cart.events.EventPublisher;
+import com.newproject.cart.exception.NotFoundException;
+import com.newproject.cart.repository.CartItemRepository;
+import com.newproject.cart.repository.CartRepository;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class CartItemService {
+    private final CartRepository cartRepository;
+    private final CartItemRepository cartItemRepository;
+    private final EventPublisher eventPublisher;
+
+    public CartItemService(CartRepository cartRepository, CartItemRepository cartItemRepository, EventPublisher eventPublisher) {
+        this.cartRepository = cartRepository;
+        this.cartItemRepository = cartItemRepository;
+        this.eventPublisher = eventPublisher;
+    }
+
+    @Transactional
+    public CartItemResponse addItem(Long cartId, CartItemRequest request) {
+        Cart cart = cartRepository.findById(cartId)
+            .orElseThrow(() -> new NotFoundException("Cart not found"));
+
+        CartItem item = new CartItem();
+        item.setCart(cart);
+        item.setProductId(request.getProductId());
+        item.setQuantity(request.getQuantity());
+        item.setUnitPrice(request.getUnitPrice());
+
+        CartItem saved = cartItemRepository.save(item);
+        eventPublisher.publish("CART_ITEM_ADDED", "cart_item", saved.getId().toString(), toResponse(saved));
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public CartItemResponse updateItem(Long itemId, CartItemRequest request) {
+        CartItem item = cartItemRepository.findById(itemId)
+            .orElseThrow(() -> new NotFoundException("Cart item not found"));
+
+        item.setProductId(request.getProductId());
+        item.setQuantity(request.getQuantity());
+        item.setUnitPrice(request.getUnitPrice());
+
+        CartItem saved = cartItemRepository.save(item);
+        eventPublisher.publish("CART_ITEM_UPDATED", "cart_item", saved.getId().toString(), toResponse(saved));
+        return toResponse(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CartItemResponse> listItems(Long cartId) {
+        return cartItemRepository.findByCartId(cartId).stream()
+            .map(this::toResponse)
+            .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void removeItem(Long itemId) {
+        CartItem item = cartItemRepository.findById(itemId)
+            .orElseThrow(() -> new NotFoundException("Cart item not found"));
+        cartItemRepository.delete(item);
+        eventPublisher.publish("CART_ITEM_REMOVED", "cart_item", itemId.toString(), null);
+    }
+
+    private CartItemResponse toResponse(CartItem item) {
+        CartItemResponse response = new CartItemResponse();
+        response.setId(item.getId());
+        response.setCartId(item.getCart().getId());
+        response.setProductId(item.getProductId());
+        response.setQuantity(item.getQuantity());
+        response.setUnitPrice(item.getUnitPrice());
+        return response;
+    }
+}
