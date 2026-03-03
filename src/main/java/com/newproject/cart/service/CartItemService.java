@@ -30,14 +30,22 @@ public class CartItemService {
         Cart cart = cartRepository.findById(cartId)
             .orElseThrow(() -> new NotFoundException("Cart not found"));
 
-        CartItem item = new CartItem();
-        item.setCart(cart);
-        item.setProductId(request.getProductId());
-        item.setQuantity(request.getQuantity());
-        item.setUnitPrice(request.getUnitPrice());
+        CartItem item = cartItemRepository.findByCartIdAndProductId(cartId, request.getProductId())
+            .orElseGet(CartItem::new);
+
+        boolean created = item.getId() == null;
+        if (created) {
+            item.setCart(cart);
+            item.setProductId(request.getProductId());
+            item.setQuantity(request.getQuantity());
+            item.setUnitPrice(request.getUnitPrice());
+        } else {
+            item.setQuantity(item.getQuantity() + request.getQuantity());
+            item.setUnitPrice(request.getUnitPrice());
+        }
 
         CartItem saved = cartItemRepository.save(item);
-        eventPublisher.publish("CART_ITEM_ADDED", "cart_item", saved.getId().toString(), toResponse(saved));
+        eventPublisher.publish(created ? "CART_ITEM_ADDED" : "CART_ITEM_UPDATED", "cart_item", saved.getId().toString(), toResponse(saved));
         return toResponse(saved);
     }
 
@@ -50,6 +58,17 @@ public class CartItemService {
         item.setQuantity(request.getQuantity());
         item.setUnitPrice(request.getUnitPrice());
 
+        CartItem saved = cartItemRepository.save(item);
+        eventPublisher.publish("CART_ITEM_UPDATED", "cart_item", saved.getId().toString(), toResponse(saved));
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public CartItemResponse updateQuantity(Long itemId, Integer quantity) {
+        CartItem item = cartItemRepository.findById(itemId)
+            .orElseThrow(() -> new NotFoundException("Cart item not found"));
+
+        item.setQuantity(quantity);
         CartItem saved = cartItemRepository.save(item);
         eventPublisher.publish("CART_ITEM_UPDATED", "cart_item", saved.getId().toString(), toResponse(saved));
         return toResponse(saved);

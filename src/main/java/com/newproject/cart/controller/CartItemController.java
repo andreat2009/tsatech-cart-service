@@ -1,5 +1,6 @@
 package com.newproject.cart.controller;
 
+import com.newproject.cart.dto.CartItemQuantityRequest;
 import com.newproject.cart.dto.CartItemRequest;
 import com.newproject.cart.dto.CartItemResponse;
 import com.newproject.cart.service.CartItemService;
@@ -31,6 +32,11 @@ public class CartItemController {
     @PutMapping("/items/{itemId}")
     public CartItemResponse update(@PathVariable Long itemId, @Valid @RequestBody CartItemRequest request) {
         return cartItemService.updateItem(itemId, request);
+    }
+
+    @PatchMapping("/items/{itemId}/quantity")
+    public CartItemResponse updateQuantity(@PathVariable Long itemId, @Valid @RequestBody CartItemQuantityRequest request) {
+        return cartItemService.updateQuantity(itemId, request.getQuantity());
     }
 
     @DeleteMapping("/items/{itemId}")
