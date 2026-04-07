@@ -8,6 +8,7 @@ import com.newproject.cart.events.EventPublisher;
 import com.newproject.cart.exception.NotFoundException;
 import com.newproject.cart.repository.CartItemRepository;
 import com.newproject.cart.repository.CartRepository;
+import com.newproject.cart.security.RequestActor;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -18,17 +19,25 @@ public class CartItemService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final EventPublisher eventPublisher;
+    private final RequestActor requestActor;
 
-    public CartItemService(CartRepository cartRepository, CartItemRepository cartItemRepository, EventPublisher eventPublisher) {
+    public CartItemService(
+        CartRepository cartRepository,
+        CartItemRepository cartItemRepository,
+        EventPublisher eventPublisher,
+        RequestActor requestActor
+    ) {
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
         this.eventPublisher = eventPublisher;
+        this.requestActor = requestActor;
     }
 
     @Transactional
     public CartItemResponse addItem(Long cartId, CartItemRequest request) {
         Cart cart = cartRepository.findById(cartId)
             .orElseThrow(() -> new NotFoundException("Cart not found"));
+        requestActor.assertCustomerAccessIfAuthenticated(cart.getCustomerId());
 
         CartItem item = cartItemRepository.findByCartIdAndProductId(cartId, request.getProductId())
             .orElseGet(CartItem::new);
@@ -53,6 +62,7 @@ public class CartItemService {
     public CartItemResponse updateItem(Long itemId, CartItemRequest request) {
         CartItem item = cartItemRepository.findById(itemId)
             .orElseThrow(() -> new NotFoundException("Cart item not found"));
+        requestActor.assertCustomerAccessIfAuthenticated(item.getCart().getCustomerId());
 
         item.setProductId(request.getProductId());
         item.setQuantity(request.getQuantity());
@@ -67,6 +77,7 @@ public class CartItemService {
     public CartItemResponse updateQuantity(Long itemId, Integer quantity) {
         CartItem item = cartItemRepository.findById(itemId)
             .orElseThrow(() -> new NotFoundException("Cart item not found"));
+        requestActor.assertCustomerAccessIfAuthenticated(item.getCart().getCustomerId());
 
         item.setQuantity(quantity);
         CartItem saved = cartItemRepository.save(item);
@@ -76,6 +87,9 @@ public class CartItemService {
 
     @Transactional(readOnly = true)
     public List<CartItemResponse> listItems(Long cartId) {
+        Cart cart = cartRepository.findById(cartId)
+            .orElseThrow(() -> new NotFoundException("Cart not found"));
+        requestActor.assertCustomerAccessIfAuthenticated(cart.getCustomerId());
         return cartItemRepository.findByCartId(cartId).stream()
             .map(this::toResponse)
             .collect(Collectors.toList());
@@ -85,6 +99,7 @@ public class CartItemService {
     public void removeItem(Long itemId) {
         CartItem item = cartItemRepository.findById(itemId)
             .orElseThrow(() -> new NotFoundException("Cart item not found"));
+        requestActor.assertCustomerAccessIfAuthenticated(item.getCart().getCustomerId());
         cartItemRepository.delete(item);
         eventPublisher.publish("CART_ITEM_REMOVED", "cart_item", itemId.toString(), null);
     }
