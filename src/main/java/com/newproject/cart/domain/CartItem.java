@@ -17,6 +17,12 @@ public class CartItem {
     @Column(name = "product_id", nullable = false)
     private Long productId;
 
+    @Column(name = "variant_key", nullable = false, length = 128)
+    private String variantKey = "";
+
+    @Column(name = "variant_display_name", length = 255)
+    private String variantDisplayName;
+
     @Column(nullable = false)
     private Integer quantity;
 
@@ -45,6 +51,22 @@ public class CartItem {
 
     public void setProductId(Long productId) {
         this.productId = productId;
+    }
+
+    public String getVariantKey() {
+        return variantKey;
+    }
+
+    public void setVariantKey(String variantKey) {
+        this.variantKey = variantKey;
+    }
+
+    public String getVariantDisplayName() {
+        return variantDisplayName;
+    }
+
+    public void setVariantDisplayName(String variantDisplayName) {
+        this.variantDisplayName = variantDisplayName;
     }
 
     public Integer getQuantity() {

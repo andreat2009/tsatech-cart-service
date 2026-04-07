@@ -39,16 +39,20 @@ public class CartItemService {
             .orElseThrow(() -> new NotFoundException("Cart not found"));
         requestActor.assertCustomerAccessIfAuthenticated(cart.getCustomerId());
 
-        CartItem item = cartItemRepository.findByCartIdAndProductId(cartId, request.getProductId())
+        String variantKey = normalizeVariantKey(request.getVariantKey());
+        CartItem item = cartItemRepository.findByCartIdAndProductIdAndVariantKey(cartId, request.getProductId(), variantKey)
             .orElseGet(CartItem::new);
 
         boolean created = item.getId() == null;
         if (created) {
             item.setCart(cart);
             item.setProductId(request.getProductId());
+            item.setVariantKey(variantKey);
+            item.setVariantDisplayName(trimToNull(request.getVariantDisplayName()));
             item.setQuantity(request.getQuantity());
             item.setUnitPrice(request.getUnitPrice());
         } else {
+            item.setVariantDisplayName(trimToNull(request.getVariantDisplayName()));
             item.setQuantity(item.getQuantity() + request.getQuantity());
             item.setUnitPrice(request.getUnitPrice());
         }
@@ -65,6 +69,8 @@ public class CartItemService {
         requestActor.assertCustomerAccessIfAuthenticated(item.getCart().getCustomerId());
 
         item.setProductId(request.getProductId());
+        item.setVariantKey(normalizeVariantKey(request.getVariantKey()));
+        item.setVariantDisplayName(trimToNull(request.getVariantDisplayName()));
         item.setQuantity(request.getQuantity());
         item.setUnitPrice(request.getUnitPrice());
 
@@ -109,8 +115,26 @@ public class CartItemService {
         response.setId(item.getId());
         response.setCartId(item.getCart().getId());
         response.setProductId(item.getProductId());
+        response.setVariantKey(item.getVariantKey());
+        response.setVariantDisplayName(item.getVariantDisplayName());
         response.setQuantity(item.getQuantity());
         response.setUnitPrice(item.getUnitPrice());
         return response;
+    }
+
+    private String normalizeVariantKey(String variantKey) {
+        if (variantKey == null) {
+            return "";
+        }
+        String trimmed = variantKey.trim();
+        return trimmed.isEmpty() ? "" : trimmed;
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }
